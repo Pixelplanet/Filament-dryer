@@ -1,0 +1,16 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Run Filament Dryer GUI",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/filament_dryer_gui.py",
+            "console": "integratedTerminal",
+            "pythonPath": "c:/Users/Tom/OneDrive/k_vscode/kivy_venv/Scripts/python.exe",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        }
+    ]
+}
