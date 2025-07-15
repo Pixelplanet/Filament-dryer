@@ -7,7 +7,7 @@ from kivy.uix.slider import Slider
 from kivy.uix.gridlayout import GridLayout
 
 class MainPage(BoxLayout):
-    def __init__(self, switch_to_settings, switch_to_preset_selection, **kwargs):
+    def __init__(self, switch_to_settings, switch_to_preset_selection, switch_to_testing=None, **kwargs):
         super().__init__(orientation='vertical', **kwargs)
 
         self.add_widget(Label(text='Filament Dryer Control', font_size=sp(32), bold=True, size_hint=(1, 0.2)))
@@ -38,6 +38,10 @@ class MainPage(BoxLayout):
         self.presets_button = Button(text='Select Preset', size_hint=(1, 0.2), font_size=sp(18))
         self.presets_button.bind(on_press=lambda instance: switch_to_preset_selection())
         self.add_widget(self.presets_button)
+
+        self.testing_btn = Button(text='Testing', size_hint=(1, 0.2))
+        self.testing_btn.bind(on_press=lambda x: switch_to_testing())
+        self.add_widget(self.testing_btn)
 
         self.selected_preset_label = Label(text='Selected Preset: None', font_size=sp(18), size_hint=(1, 0.2))
         self.add_widget(self.selected_preset_label)
