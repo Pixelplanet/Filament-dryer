@@ -92,7 +92,9 @@ class TestingPage(BoxLayout):
         if RPI_AVAILABLE:
             GPIO.setmode(GPIO.BCM)
             GPIO.setup(PWM_PIN, GPIO.OUT)
-            print(f"[GPIO] Setup complete for pin {PWM_PIN}")
+            # Enable internal pull-up for GPIO4 (1-wire data)
+            GPIO.setup(4, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+            print(f"[GPIO] Setup complete for pin {PWM_PIN} and internal pull-up enabled for GPIO4.")
         else:
             print("[GPIO] RPi.GPIO not available. GPIO actions will be skipped.")
 
