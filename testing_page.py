@@ -72,13 +72,6 @@ class TestingPage(BoxLayout):
         self.stop_btn.bind(on_press=self.stop_pwm)
         self.grid.add_widget(self.stop_btn)
 
-        self.slider_label = Label(text='Duty Cycle: 0%', size_hint=(1, None), height=40)
-        self.grid.add_widget(self.slider_label)
-
-        self.slider = Slider(min=0, max=100, value=0, size_hint=(1, None), height=60)
-        self.slider.bind(value=self.on_slider_value)
-        self.grid.add_widget(self.slider)
-
         # Temperature readout label
         self.temp_label = Label(text='Temperature: -- °C', size_hint=(1, None), height=40)
         self.grid.add_widget(self.temp_label)
@@ -104,6 +97,28 @@ class TestingPage(BoxLayout):
         # Live PWM value
         self.pwm_value_label = Label(text='PWM: 0%', size_hint=(1, None), height=40)
         self.grid.add_widget(self.pwm_value_label)
+
+        # Add graph for temperature and PWM
+        from kivy.garden.matplotlib import FigureCanvasKivyAgg
+        import matplotlib.pyplot as plt
+        import collections
+        self.temp_history = collections.deque(maxlen=120)
+        self.pwm_history = collections.deque(maxlen=120)
+        self.time_history = collections.deque(maxlen=120)
+        self.graph_fig, self.graph_ax1 = plt.subplots()
+        self.graph_ax2 = self.graph_ax1.twinx()
+        self.graph_canvas = FigureCanvasKivyAgg(self.graph_fig)
+        self.grid.add_widget(self.graph_canvas)
+
+        self.graph_ax1.set_xlabel('Time (s)')
+        self.graph_ax1.set_ylabel('Temperature (°C)', color='tab:red')
+        self.graph_ax2.set_ylabel('PWM (%)', color='tab:blue')
+        self.graph_temp_line, = self.graph_ax1.plot([], [], 'r-', label='Temperature')
+        self.graph_pwm_line, = self.graph_ax2.plot([], [], 'b-', label='PWM')
+        self.graph_fig.tight_layout()
+
+        self.graph_update_interval = 0.5
+        self.graph_last_update = time.time()
 
         self.add_widget(self.grid)
 
@@ -187,17 +202,17 @@ class TestingPage(BoxLayout):
             self.temp_control_btn.text = "Enable Temp Control"
 
     def update_temperature(self):
+        start_time = time.time()
         while not self.stop_temp_thread:
             temp = self.read_temperature()
+            current_time = time.time() - start_time
             if temp is not None:
                 self.temperature = temp
                 self.temp_label.text = f"Temperature: {temp:.2f} °C"
                 # Automatic PWM control
                 if self.temp_control_active and self.target_temperature is not None:
-                    # Proportional control for smoother heating
                     error = self.target_temperature - temp
                     if error > 0:
-                        # If far from target, go fast; if close, go slow
                         if error > 5:
                             pwm_value = 100
                         elif error > 2:
@@ -217,13 +232,38 @@ class TestingPage(BoxLayout):
                         self.pwm.ChangeDutyCycle(pwm_value)
                     self.pwm_value_label.text = f'PWM: {pwm_value}%'
                 else:
+                    pwm_value = 0
                     self.heating_label.text = 'Heating: OFF'
                     self.pwm_value_label.text = 'PWM: 0%'
+                # Update graph data
+                self.temp_history.append(temp)
+                self.pwm_history.append(pwm_value)
+                self.time_history.append(current_time)
             else:
                 self.temp_label.text = "Temperature: -- °C"
                 self.heating_label.text = 'Heating: OFF'
                 self.pwm_value_label.text = 'PWM: 0%'
+                # Update graph data with None
+                self.temp_history.append(None)
+                self.pwm_history.append(0)
+                self.time_history.append(current_time)
+            # Update graph every interval
+            if time.time() - self.graph_last_update > self.graph_update_interval:
+                self.graph_last_update = time.time()
+                self.update_graph()
             time.sleep(0.5)
+
+    def update_graph(self):
+        times = list(self.time_history)
+        temps = [t if t is not None else float('nan') for t in self.temp_history]
+        pwms = list(self.pwm_history)
+        self.graph_temp_line.set_data(times, temps)
+        self.graph_pwm_line.set_data(times, pwms)
+        self.graph_ax1.relim()
+        self.graph_ax1.autoscale_view()
+        self.graph_ax2.relim()
+        self.graph_ax2.autoscale_view()
+        self.graph_fig.canvas.draw_idle()
 
     def start_pwm(self, instance):
         print(f"[GPIO] Start PWM requested on pin {PWM_PIN} at {self.slider.value}% duty cycle.")
