@@ -9,6 +9,7 @@ import platform
 import glob
 import threading
 import time
+from kivy.clock import Clock
 
 def is_raspberry_pi():
     print("[RPI CHECK] Starting Raspberry Pi detection...")
@@ -252,7 +253,7 @@ class TestingPage(BoxLayout):
             # Update graph every interval
             if time.time() - self.graph_last_update > self.graph_update_interval:
                 self.graph_last_update = time.time()
-                self.update_graph()
+                Clock.schedule_once(lambda dt: self.update_graph())
             time.sleep(0.5)
 
     def update_graph(self):
