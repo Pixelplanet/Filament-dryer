@@ -83,6 +83,21 @@ class TestingPage(BoxLayout):
         self.temp_label = Label(text='Temperature: -- °C', size_hint=(1, None), height=40)
         self.grid.add_widget(self.temp_label)
 
+        # Target temperature input
+        self.target_temp_label = Label(text='Target Temperature (°C):', size_hint=(1, None), height=40)
+        self.grid.add_widget(self.target_temp_label)
+        from kivy.uix.textinput import TextInput
+        self.target_temp_input = TextInput(text='', multiline=False, size_hint=(1, None), height=40, input_filter='float')
+        self.grid.add_widget(self.target_temp_input)
+        self.set_target_btn = Button(text='Set Target', size_hint=(1, None), height=40)
+        self.set_target_btn.bind(on_press=self.set_target_temperature)
+        self.grid.add_widget(self.set_target_btn)
+        self.target_temperature = None
+        self.temp_control_active = False
+        self.temp_control_btn = Button(text='Enable Temp Control', size_hint=(1, None), height=40)
+        self.temp_control_btn.bind(on_press=self.toggle_temp_control)
+        self.grid.add_widget(self.temp_control_btn)
+
         self.add_widget(self.grid)
 
         self.back_btn = Button(text='Back', size_hint=(1, 0.2))
@@ -106,45 +121,63 @@ class TestingPage(BoxLayout):
     def get_sensor_file(self):
         # Find the 1-wire sensor device file
         base_dir = '/sys/bus/w1/devices/'
-        print(f"[TEMP] Searching for 1-wire devices in {base_dir}")
+        # print(f"[TEMP] Searching for 1-wire devices in {base_dir}")
         try:
             device_folders = glob.glob(base_dir + '28-*')
-            print(f"[TEMP] Found device folders: {device_folders}")
+            # print(f"[TEMP] Found device folders: {device_folders}")
             if device_folders:
                 sensor_file = device_folders[0] + '/w1_slave'
-                print(f"[TEMP] Using sensor file: {sensor_file}")
+                # print(f"[TEMP] Using sensor file: {sensor_file}")
                 return sensor_file
             else:
-                print("[TEMP] No 1-wire devices found.")
+                # print("[TEMP] No 1-wire devices found.")
+                pass
         except Exception as e:
-            print(f"[TEMP] Error finding sensor file: {e}")
+            # print(f"[TEMP] Error finding sensor file: {e}")
+            pass
         return None
 
     def read_temperature(self):
         sensor_file = self.get_sensor_file()
-        print(f"[TEMP] Sensor file resolved: {sensor_file}")
+        # print(f"[TEMP] Sensor file resolved: {sensor_file}")
         if not sensor_file:
-            print("[TEMP] No sensor file available.")
+            # print("[TEMP] No sensor file available.")
             return None
         try:
             with open(sensor_file, 'r') as f:
                 lines = f.readlines()
-            print(f"[TEMP] Sensor file contents: {lines}")
+            # print(f"[TEMP] Sensor file contents: {lines}")
             if lines[0].strip()[-3:] != 'YES':
-                print(f"[TEMP] CRC check failed: {lines[0].strip()}")
+                # print(f"[TEMP] CRC check failed: {lines[0].strip()}")
                 return None
             equals_pos = lines[1].find('t=')
             if equals_pos != -1:
                 temp_string = lines[1][equals_pos+2:]
-                print(f"[TEMP] Raw temperature string: {temp_string}")
+                # print(f"[TEMP] Raw temperature string: {temp_string}")
                 temp_c = float(temp_string) / 1000.0
-                print(f"[TEMP] Parsed temperature: {temp_c} °C")
+                # print(f"[TEMP] Parsed temperature: {temp_c} °C")
                 return temp_c
             else:
-                print("[TEMP] 't=' not found in sensor file.")
+                # print("[TEMP] 't=' not found in sensor file.")
+                pass
         except Exception as e:
-            print(f"[TEMP] Error reading temperature: {e}")
+            # print(f"[TEMP] Error reading temperature: {e}")
+            pass
         return None
+
+    def set_target_temperature(self, instance):
+        try:
+            self.target_temperature = float(self.target_temp_input.text)
+            self.target_temp_label.text = f"Target Temperature (°C): {self.target_temperature:.2f}"
+        except ValueError:
+            self.target_temp_label.text = "Target Temperature (°C): Invalid input"
+
+    def toggle_temp_control(self, instance):
+        self.temp_control_active = not self.temp_control_active
+        if self.temp_control_active:
+            self.temp_control_btn.text = "Disable Temp Control"
+        else:
+            self.temp_control_btn.text = "Enable Temp Control"
 
     def update_temperature(self):
         while not self.stop_temp_thread:
@@ -152,6 +185,18 @@ class TestingPage(BoxLayout):
             if temp is not None:
                 self.temperature = temp
                 self.temp_label.text = f"Temperature: {temp:.2f} °C"
+                # Automatic PWM control
+                if self.temp_control_active and self.target_temperature is not None:
+                    # Simple on/off control, can be replaced with PID
+                    if temp < self.target_temperature:
+                        if self.pwm is None:
+                            self.pwm = GPIO.PWM(PWM_PIN, 1000)
+                            self.pwm.start(100)  # Full power
+                        else:
+                            self.pwm.ChangeDutyCycle(100)
+                    else:
+                        if self.pwm is not None:
+                            self.pwm.ChangeDutyCycle(0)  # Turn off
             else:
                 self.temp_label.text = "Temperature: -- °C"
             time.sleep(2)
