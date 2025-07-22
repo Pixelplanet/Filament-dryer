@@ -8,26 +8,44 @@ from kivy.core.window import Window
 import platform
 
 def is_raspberry_pi():
+    print("[RPI CHECK] Starting Raspberry Pi detection...")
     # Check for Raspberry Pi by reading /proc/cpuinfo or using platform
     try:
         with open('/proc/cpuinfo', 'r') as f:
             cpuinfo = f.read()
-        if 'Raspberry Pi' in cpuinfo or 'BCM' in cpuinfo:
+        print("[RPI CHECK] /proc/cpuinfo read successfully.")
+        if 'Raspberry Pi' in cpuinfo:
+            print("[RPI CHECK] Found 'Raspberry Pi' in /proc/cpuinfo.")
             return True
-    except Exception:
-        pass
+        if 'BCM' in cpuinfo:
+            print("[RPI CHECK] Found 'BCM' in /proc/cpuinfo.")
+            return True
+        print("[RPI CHECK] No Raspberry Pi markers found in /proc/cpuinfo.")
+    except Exception as e:
+        print(f"[RPI CHECK] Failed to read /proc/cpuinfo: {e}")
     # Fallback: check platform
-    if 'raspberrypi' in platform.uname().node.lower():
-        return True
+    try:
+        node_name = platform.uname().node
+        print(f"[RPI CHECK] platform.uname().node: {node_name}")
+        if 'raspberrypi' in node_name.lower():
+            print("[RPI CHECK] Found 'raspberrypi' in platform.uname().node.")
+            return True
+        print("[RPI CHECK] No Raspberry Pi markers found in platform.uname().node.")
+    except Exception as e:
+        print(f"[RPI CHECK] platform.uname() failed: {e}")
+    print("[RPI CHECK] Device is NOT a Raspberry Pi.")
     return False
 
 try:
     import RPi.GPIO as GPIO
     GPIO_IMPORTED = True
-except ImportError:
+    print("[GPIO] RPi.GPIO imported successfully.")
+except ImportError as e:
     GPIO_IMPORTED = False
+    print(f"[GPIO] Failed to import RPi.GPIO: {e}")
 
 RPI_AVAILABLE = GPIO_IMPORTED and is_raspberry_pi()
+print(f"[SETUP] GPIO_IMPORTED={GPIO_IMPORTED}, RPI_AVAILABLE={RPI_AVAILABLE}")
 
 PWM_PIN = 18  # Change to your desired GPIO pin
 
