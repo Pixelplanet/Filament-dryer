@@ -108,6 +108,9 @@ class TestingPage(BoxLayout):
         self.graph_fig, self.graph_ax1 = plt.subplots()
         self.graph_ax2 = self.graph_ax1.twinx()
         self.graph_canvas = FigureCanvasKivyAgg(self.graph_fig)
+        # Workaround for resize_event error in some garden.matplotlib versions
+        if hasattr(self.graph_canvas, 'resize_event'):
+            self.graph_canvas.resize_event = lambda *args, **kwargs: None
         self.grid.add_widget(self.graph_canvas)
 
         self.graph_ax1.set_xlabel('Time (s)')
