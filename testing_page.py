@@ -5,12 +5,29 @@ from kivy.uix.button import Button
 from kivy.uix.slider import Slider
 from kivy.uix.label import Label
 from kivy.core.window import Window
+import platform
+
+def is_raspberry_pi():
+    # Check for Raspberry Pi by reading /proc/cpuinfo or using platform
+    try:
+        with open('/proc/cpuinfo', 'r') as f:
+            cpuinfo = f.read()
+        if 'Raspberry Pi' in cpuinfo or 'BCM' in cpuinfo:
+            return True
+    except Exception:
+        pass
+    # Fallback: check platform
+    if 'raspberrypi' in platform.uname().node.lower():
+        return True
+    return False
 
 try:
     import RPi.GPIO as GPIO
-    RPI_AVAILABLE = True
+    GPIO_IMPORTED = True
 except ImportError:
-    RPI_AVAILABLE = False
+    GPIO_IMPORTED = False
+
+RPI_AVAILABLE = GPIO_IMPORTED and is_raspberry_pi()
 
 PWM_PIN = 18  # Change to your desired GPIO pin
 
