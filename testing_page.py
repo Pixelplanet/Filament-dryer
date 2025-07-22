@@ -104,28 +104,42 @@ class TestingPage(BoxLayout):
     def get_sensor_file(self):
         # Find the 1-wire sensor device file
         base_dir = '/sys/bus/w1/devices/'
+        print(f"[TEMP] Searching for 1-wire devices in {base_dir}")
         try:
             device_folders = glob.glob(base_dir + '28-*')
+            print(f"[TEMP] Found device folders: {device_folders}")
             if device_folders:
-                return device_folders[0] + '/w1_slave'
+                sensor_file = device_folders[0] + '/w1_slave'
+                print(f"[TEMP] Using sensor file: {sensor_file}")
+                return sensor_file
+            else:
+                print("[TEMP] No 1-wire devices found.")
         except Exception as e:
             print(f"[TEMP] Error finding sensor file: {e}")
         return None
 
     def read_temperature(self):
         sensor_file = self.get_sensor_file()
+        print(f"[TEMP] Sensor file resolved: {sensor_file}")
         if not sensor_file:
+            print("[TEMP] No sensor file available.")
             return None
         try:
             with open(sensor_file, 'r') as f:
                 lines = f.readlines()
+            print(f"[TEMP] Sensor file contents: {lines}")
             if lines[0].strip()[-3:] != 'YES':
+                print(f"[TEMP] CRC check failed: {lines[0].strip()}")
                 return None
             equals_pos = lines[1].find('t=')
             if equals_pos != -1:
                 temp_string = lines[1][equals_pos+2:]
+                print(f"[TEMP] Raw temperature string: {temp_string}")
                 temp_c = float(temp_string) / 1000.0
+                print(f"[TEMP] Parsed temperature: {temp_c} °C")
                 return temp_c
+            else:
+                print("[TEMP] 't=' not found in sensor file.")
         except Exception as e:
             print(f"[TEMP] Error reading temperature: {e}")
         return None
