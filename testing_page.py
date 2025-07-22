@@ -6,6 +6,9 @@ from kivy.uix.slider import Slider
 from kivy.uix.label import Label
 from kivy.core.window import Window
 import platform
+import glob
+import threading
+import time
 
 def is_raspberry_pi():
     print("[RPI CHECK] Starting Raspberry Pi detection...")
@@ -55,6 +58,8 @@ class TestingPage(BoxLayout):
         self.switch_to_main = switch_to_main
         self.pwm = None
         self.duty_cycle = 0
+        self.temperature = None
+        self.stop_temp_thread = False
 
         # Use GridLayout for better touch area distribution
         self.grid = GridLayout(cols=1, spacing=10, padding=20, size_hint=(1, 0.8))
@@ -74,6 +79,10 @@ class TestingPage(BoxLayout):
         self.slider.bind(value=self.on_slider_value)
         self.grid.add_widget(self.slider)
 
+        # Temperature readout label
+        self.temp_label = Label(text='Temperature: -- °C', size_hint=(1, None), height=40)
+        self.grid.add_widget(self.temp_label)
+
         self.add_widget(self.grid)
 
         self.back_btn = Button(text='Back', size_hint=(1, 0.2))
@@ -86,6 +95,50 @@ class TestingPage(BoxLayout):
             print(f"[GPIO] Setup complete for pin {PWM_PIN}")
         else:
             print("[GPIO] RPi.GPIO not available. GPIO actions will be skipped.")
+
+        # Start temperature reading thread if on RPi
+        if RPI_AVAILABLE:
+            self.temp_thread = threading.Thread(target=self.update_temperature, daemon=True)
+            self.temp_thread.start()
+
+    def get_sensor_file(self):
+        # Find the 1-wire sensor device file
+        base_dir = '/sys/bus/w1/devices/'
+        try:
+            device_folders = glob.glob(base_dir + '28-*')
+            if device_folders:
+                return device_folders[0] + '/w1_slave'
+        except Exception as e:
+            print(f"[TEMP] Error finding sensor file: {e}")
+        return None
+
+    def read_temperature(self):
+        sensor_file = self.get_sensor_file()
+        if not sensor_file:
+            return None
+        try:
+            with open(sensor_file, 'r') as f:
+                lines = f.readlines()
+            if lines[0].strip()[-3:] != 'YES':
+                return None
+            equals_pos = lines[1].find('t=')
+            if equals_pos != -1:
+                temp_string = lines[1][equals_pos+2:]
+                temp_c = float(temp_string) / 1000.0
+                return temp_c
+        except Exception as e:
+            print(f"[TEMP] Error reading temperature: {e}")
+        return None
+
+    def update_temperature(self):
+        while not self.stop_temp_thread:
+            temp = self.read_temperature()
+            if temp is not None:
+                self.temperature = temp
+                self.temp_label.text = f"Temperature: {temp:.2f} °C"
+            else:
+                self.temp_label.text = "Temperature: -- °C"
+            time.sleep(2)
 
     def start_pwm(self, instance):
         print(f"[GPIO] Start PWM requested on pin {PWM_PIN} at {self.slider.value}% duty cycle.")
@@ -113,3 +166,12 @@ class TestingPage(BoxLayout):
         if RPI_AVAILABLE and self.pwm:
             self.pwm.ChangeDutyCycle(self.duty_cycle)
             print(f"[GPIO] PWM duty cycle changed to {self.duty_cycle}%.")
+
+    def on_parent(self, widget, parent):
+        super().on_parent(widget, parent)
+        if parent is None:
+            # Stopped being a child of the parent (navigating away)
+            self.stop_temp_thread = True
+            if RPI_AVAILABLE and self.pwm:
+                self.pwm.stop()
+                print(f"[GPIO] PWM stopped on pin {PWM_PIN} (navigating away).")
