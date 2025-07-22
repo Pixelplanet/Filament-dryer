@@ -105,6 +105,9 @@ class TestingPage(BoxLayout):
         # Workaround for resize_event error in some garden.matplotlib versions
         if not hasattr(self.graph_canvas, 'resize_event'):
             self.graph_canvas.resize_event = lambda *args, **kwargs: None
+        # Workaround for motion_notify_event error in some garden.matplotlib versions
+        if not hasattr(self.graph_canvas, 'motion_notify_event'):
+            self.graph_canvas.motion_notify_event = lambda *args, **kwargs: None
         # Set graph size to fill available space above back button
         self.graph_canvas.size_hint = (1, 0.5)
         self.grid.add_widget(self.graph_canvas)
