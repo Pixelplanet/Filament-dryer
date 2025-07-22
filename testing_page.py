@@ -98,6 +98,13 @@ class TestingPage(BoxLayout):
         self.temp_control_btn.bind(on_press=self.toggle_temp_control)
         self.grid.add_widget(self.temp_control_btn)
 
+        # Heating indicator
+        self.heating_label = Label(text='Heating: OFF', size_hint=(1, None), height=40)
+        self.grid.add_widget(self.heating_label)
+        # Live PWM value
+        self.pwm_value_label = Label(text='PWM: 0%', size_hint=(1, None), height=40)
+        self.grid.add_widget(self.pwm_value_label)
+
         self.add_widget(self.grid)
 
         self.back_btn = Button(text='Back', size_hint=(1, 0.2))
@@ -187,19 +194,36 @@ class TestingPage(BoxLayout):
                 self.temp_label.text = f"Temperature: {temp:.2f} °C"
                 # Automatic PWM control
                 if self.temp_control_active and self.target_temperature is not None:
-                    # Simple on/off control, can be replaced with PID
-                    if temp < self.target_temperature:
-                        if self.pwm is None:
-                            self.pwm = GPIO.PWM(PWM_PIN, 1000)
-                            self.pwm.start(100)  # Full power
+                    # Proportional control for smoother heating
+                    error = self.target_temperature - temp
+                    if error > 0:
+                        # If far from target, go fast; if close, go slow
+                        if error > 5:
+                            pwm_value = 100
+                        elif error > 2:
+                            pwm_value = 60
+                        elif error > 0.5:
+                            pwm_value = 30
                         else:
-                            self.pwm.ChangeDutyCycle(100)
+                            pwm_value = 10
+                        self.heating_label.text = 'Heating: ON'
                     else:
-                        if self.pwm is not None:
-                            self.pwm.ChangeDutyCycle(0)  # Turn off
+                        pwm_value = 0
+                        self.heating_label.text = 'Heating: OFF'
+                    if self.pwm is None:
+                        self.pwm = GPIO.PWM(PWM_PIN, 1000)
+                        self.pwm.start(pwm_value)
+                    else:
+                        self.pwm.ChangeDutyCycle(pwm_value)
+                    self.pwm_value_label.text = f'PWM: {pwm_value}%'
+                else:
+                    self.heating_label.text = 'Heating: OFF'
+                    self.pwm_value_label.text = 'PWM: 0%'
             else:
                 self.temp_label.text = "Temperature: -- °C"
-            time.sleep(2)
+                self.heating_label.text = 'Heating: OFF'
+                self.pwm_value_label.text = 'PWM: 0%'
+            time.sleep(0.5)
 
     def start_pwm(self, instance):
         print(f"[GPIO] Start PWM requested on pin {PWM_PIN} at {self.slider.value}% duty cycle.")
