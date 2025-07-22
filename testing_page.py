@@ -168,7 +168,7 @@ class TestingPage(BoxLayout):
             print(f"[GPIO] PWM duty cycle changed to {self.duty_cycle}%.")
 
     def on_parent(self, widget, parent):
-        super().on_parent(widget, parent)
+        # Removed super().on_parent(widget, parent) to avoid error
         if parent is None:
             # Stopped being a child of the parent (navigating away)
             self.stop_temp_thread = True
