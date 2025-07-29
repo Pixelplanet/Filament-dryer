@@ -128,7 +128,7 @@ class TestingPage(BoxLayout):
         self.back_btn = Button(text='Back', size_hint=(1, 0.1))
         self.back_btn.bind(on_press=lambda x: self.switch_to_main())
         self.add_widget(self.back_btn)
-
+#1
         if RPI_AVAILABLE:
             GPIO.setmode(GPIO.BCM)
             GPIO.setup(PWM_PIN, GPIO.OUT)
