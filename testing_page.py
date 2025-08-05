@@ -229,7 +229,7 @@ class TestingPage(BoxLayout):
                         pwm_value = 0
                         self.heating_label.text = 'Heating: OFF'
                     if self.pwm is None:
-                        self.pwm = GPIO.PWM(PWM_PIN, 1000)
+                        self.pwm = GPIO.PWM(PWM_PIN, 100)
                         self.pwm.start(pwm_value)
                     else:
                         self.pwm.ChangeDutyCycle(pwm_value)
